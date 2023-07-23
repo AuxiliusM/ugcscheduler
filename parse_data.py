@@ -40,11 +40,13 @@ def get_available_teams(win_dict: dict):
     if len(total_teams) % 2 != 0:
         total_teams.append(BYEWEEK_TEAM_NAME)
 
-    res_dict = {}
+    available_dict = {}
+    unavailable_dict = {}
     for team, data in win_dict.items():
-        wins, played = data['wins'], data['played']
+        _, played = data['wins'], data['played']
         available = [t for t in total_teams if t not in played and t != team]
 
-        res_dict[team] = available
+        available_dict[team] = available
+        unavailable_dict[team] = played 
 
-    return res_dict
+    return available_dict, unavailable_dict
