@@ -30,6 +30,11 @@ def load_win_dict(filename: str):
 
             win_dict[row['Clan']] = {'wins': win_count, 'played': played}
 
+        found_teams = win_dict.keys()
+        for _, data in win_dict.items():
+            # filter out all dropped teams, bc they are not included as clan name
+            data['played'] = [t for t in data['played'] if t in found_teams]
+
         if len(win_dict.keys()) % 2 == 0:
             for _, data in win_dict.items():
                 # handles edge case if additional team joined late or dropped out
