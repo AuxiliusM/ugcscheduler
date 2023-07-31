@@ -6,7 +6,7 @@ BYEWEEK_TEAM_NAME = 'Bye'
 
 
 def load_win_dict(filename: str):
-    with open(filename, 'r') as f:
+    with open(filename, 'r', encoding="utf8") as f:
         lines = [l.replace(' ', '') for l in f]  # cleanup
         reader = DictReader(lines, delimiter='\t')
         win_dict = {}
