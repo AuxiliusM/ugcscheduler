@@ -86,7 +86,8 @@ def get_rankings(team_list: list[str], win_dict: dict) -> dict:
 def score_team(target: str, other: str, win_dict: dict):
     base_score = abs(win_dict[target]['wins'] - win_dict[other]['wins'])
     played_count = win_dict[target]['played'].count(other)
-    score = base_score + 10 * played_count
+     
+    score = (played_count << 16) + base_score
 
     return score
 
@@ -124,20 +125,57 @@ def get_stable_matchings(team_list: list, rankings: dict):
     return matching
 
 
-if __name__ == '__main__':
-    team_list, win_dict = load_data(TABLE_TSV)
+# hacky solution for considering the ordering of the team list
+# currently the tsv doesnt contain any info on the points of a team
+# the only information is the ordering in the team list, which shows te best team first
+def modify_win_dict(win_dict: dict, team_list: list):
+    for team in team_list:
+        win_dict[team]['wins'] = (win_dict[team]['wins'] << 8) + (len(team_list) - team_list.index(team))
 
-    rankings = get_rankings(team_list, win_dict)
-    matching = get_stable_matchings(team_list, rankings)
 
-    print("Scheduled Matches:\n------------------\n")
+def handle_byeweek(team_list: list, win_dict: dict):
+    new_list = team_list.copy()
+    new_list.remove(BYEWEEK_TEAM_NAME)
 
+    new_list = sorted(new_list, key=lambda x: (win_dict[BYEWEEK_TEAM_NAME]['played'].count(x) << 32) + (win_dict[x]['wins'] << 16) + (len(team_list) - team_list.index(x)))
+    bye_team = new_list[0]
+
+    new_list.remove(bye_team)
+
+    return bye_team, new_list
+
+
+def pretty_print_matching(matching):
     printed = []
     for key in matching.keys():
         if key not in printed:
             print(f"\t{key} : {matching[key]}")
             printed.append(key)
             printed.append(matching[key])
+
+
+if __name__ == '__main__':
+    team_list, win_dict = load_data(TABLE_TSV)
+    assert len(team_list) % 2 == 0  # always have even number of teams
+    
+    modify_win_dict(win_dict, team_list)  # hacky solution
+
+    has_byweek = BYEWEEK_TEAM_NAME in team_list
+
+    if has_byweek:
+        bye_team, rest_list = handle_byeweek(team_list, win_dict)
+        team_list = rest_list
+
+    rankings = get_rankings(team_list, win_dict)
+    matching = get_stable_matchings(team_list, rankings)
+
+    if has_byweek:
+        matching[bye_team] = BYEWEEK_TEAM_NAME
+        matching[BYEWEEK_TEAM_NAME] = bye_team
+
+    print("Scheduled Matches:\n------------------\n")
+
+    pretty_print_matching(matching)
     
     input()
 
