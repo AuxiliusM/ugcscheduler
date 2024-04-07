@@ -10,47 +10,36 @@ def load_data(filename: str) -> tuple[list, dict]:
         reader = DictReader(lines, delimiter='\t')
 
         win_dict = {}  # dict for stoting wins
-        team_list = [BYEWEEK_TEAM_NAME]  # list of all teams
+        team_list = []  # list of all teams
 
         for row in reader:
             played = []
             win_count = 0
+            bye_count = 0
 
             count = 1
             while str(count) in row:
                 key = str(count)
                 match_res = row[key]
 
-                if match_res == 'W':
+                if match_res == 'W':  # regular win
                     win_count += 1
-                elif match_res == 'B':
-                    win_count += 1
-                
-                team = row['Opp'+key]
-                if team != '':
-                    played.append(team)
+                    played.append(row['Opp'+key])
 
+                elif match_res == 'B':  # byeweek win
+                    bye_count += 1
+                    played.append(BYEWEEK_TEAM_NAME)  # force own byeweek team name
+                
+                elif match_res == 'L':  # loss
+                    played.append(row['Opp'+key])
+                
+                else:  # no more valid results found
+                    break
+                
                 count += 1
 
-            win_dict[row['Clan']] = {'wins': win_count, 'played': played}
+            win_dict[row['Clan']] = {'wins': win_count+bye_count, 'played': played}
             team_list.append(row['Clan'])
-
-        found_teams = win_dict.keys()
-        for _, data in win_dict.items():
-            # filter out all dropped teams, bc they are not included as clan name
-            data['played'] = [t for t in data['played'] if t in found_teams or t == BYEWEEK_TEAM_NAME]
-
-        if len(win_dict.keys()) % 2 == 0:
-            for _, data in win_dict.items():
-                # handles edge case if additional team joined late or dropped out
-                # if that is the case bye weeks might have happend, but should not be
-                # used for scheduling anymore
-                while data['played'].count(BYEWEEK_TEAM_NAME) > 0:
-                    data['played'].remove(BYEWEEK_TEAM_NAME)
-
-        else:
-            # create dummy team for byeweek scheduling, other teams know if they played with it or not
-            win_dict[BYEWEEK_TEAM_NAME] = {'wins': 0, 'played': [team for team, data in win_dict.items() if BYEWEEK_TEAM_NAME in data['played']]}
 
     return team_list, win_dict
 
@@ -135,9 +124,8 @@ def modify_win_dict(win_dict: dict, team_list: list):
 
 def handle_byeweek(team_list: list, win_dict: dict):
     new_list = team_list.copy()
-    new_list.remove(BYEWEEK_TEAM_NAME)
 
-    new_list = sorted(new_list, key=lambda x: (win_dict[BYEWEEK_TEAM_NAME]['played'].count(x) << 32) + (win_dict[x]['wins'] << 16) + (len(team_list) - team_list.index(x)))
+    new_list = sorted(new_list, key=lambda x: (win_dict[x]['played'].count(BYEWEEK_TEAM_NAME) << 32) + (win_dict[x]['wins'] << 16) + (len(team_list) - team_list.index(x)))
     bye_team = new_list[0]
 
     new_list.remove(bye_team)
@@ -156,20 +144,21 @@ def pretty_print_matching(matching):
 
 if __name__ == '__main__':
     team_list, win_dict = load_data(TABLE_TSV)
-    assert len(team_list) % 2 == 0  # always have even number of teams
     
     modify_win_dict(win_dict, team_list)  # hacky solution
 
-    has_byweek = BYEWEEK_TEAM_NAME in team_list
+    has_byweek = len(team_list) % 2 != 0
 
-    if has_byweek:
+    if has_byweek:  # odd number of teams, find team to get byeweek
         bye_team, rest_list = handle_byeweek(team_list, win_dict)
         team_list = rest_list
+
+    assert len(team_list) % 2 == 0  # always match even number of teams
 
     rankings = get_rankings(team_list, win_dict)
     matching = get_stable_matchings(team_list, rankings)
 
-    if has_byweek:
+    if has_byweek:  # add byeweek and byeweek team after the rest was matched
         matching[bye_team] = BYEWEEK_TEAM_NAME
         matching[BYEWEEK_TEAM_NAME] = bye_team
 
