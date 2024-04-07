@@ -1,6 +1,6 @@
 from itertools import combinations
 
-from make_sched import load_data, TABLE_TSV
+from make_sched import load_data, modify_win_dict, TABLE_TSV
 from make_sched import score_team, pretty_print_matching
 
 def calc_matching_costs(matching, win_dict):
@@ -40,5 +40,8 @@ def test_all_matchings(team_list, win_dict):
 
 if __name__ == '__main__':
     team_list, win_dict = load_data(TABLE_TSV)
+    modify_win_dict(win_dict, team_list)
+
+    assert len(team_list) % 2 == 0
 
     test_all_matchings(team_list, win_dict)
